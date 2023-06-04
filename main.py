@@ -1,9 +1,9 @@
 import os
+import copy
 import math
 import pickle
 import numpy as np
 from funksvd import FunkSVD
-
 
 train_path = "./data/train.txt"
 
@@ -13,6 +13,7 @@ dump_path = "./data/train.pkl"
 
 EPOCH = 10
 K = 100
+N_folds = 5
 
 
 def dump_data(src_path, dumped_path):
@@ -53,8 +54,26 @@ def get_train_data(dumped_path):
         return data
 
 
+def cross_val_score(model, all_data, n_folds, fold):
+    train_data = copy.deepcopy(all_data)
+    valid_data = {}
+    for userID, items in all_data.items():
+        n_items = len(items)
+        keys = list(items.keys())
+        chunk_size = math.ceil(n_items / n_folds)
+        tempdict = dict()
+        # print(i)
+        for j in range(fold * chunk_size, min((fold + 1) * chunk_size, n_items)):
+            tempdict[keys[j]] = items[keys[j]]
+            train_data[userID].pop(keys[j])
+        valid_data[userID] = tempdict
+    # print(len(train_data), len(valid_data))
+    model.train(train_data, valid_data, EPOCH=EPOCH)
+
+
 if __name__ == "__main__":
-    train_data = get_train_data(dump_path)
-    # print(train_data[15143][338188])
+    all_data = get_train_data(dump_path)
     model = FunkSVD(K=K)
-    model.train(train_data, EPOCH=EPOCH)
+    # model.train(all_data, EPOCH=EPOCH)
+    for i in range(N_folds):
+        cross_val_score(model, all_data, N_folds, i)

@@ -6,25 +6,6 @@ import numpy as np
 import time
 import pickle
 
-# class FunkSVD(nn.Module):
-#     def __init__(self, M, N, K=100):
-#         super().__init__()
-#         self.user_emb = nn.Parameter(torch.randn(M, K))
-#         self.user_bias = nn.Parameter(torch.randn(M))  # 偏置
-#         self.item_emb = nn.Parameter(torch.randn(N, K))
-#         self.item_bias = nn.Parameter(torch.randn(N))
-#         self.bias = nn.Parameter(torch.zeros(1))  # 全局偏置
-
-#     def forward(self, user_id, item_id):
-#         pred = self.user_emb[user_id] * self.item_emb[item_id]
-#         pred = (
-#             pred.sum(dim=-1)
-#             + self.user_bias[user_id]
-#             + self.item_bias[item_id]
-#             + self.bias
-#         )
-#         return pred
-
 
 def date(f="%Y-%m-%d %H:%M:%S"):
     return time.strftime(f, time.localtime())
@@ -41,13 +22,13 @@ class FunkSVD:
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
 
-    def train(self, data, EPOCH):
-        best_rmse = self.RMSE(data)
-        print(f"{date()}## Before training, rmse is:{best_rmse:.6f}")
+    def train(self, train_data, valid_data, EPOCH):
+        best_rmse = self.RMSE(valid_data)
+        print(f"{date()}## Before training, valid rmse is:{best_rmse:.6f}")
         print(f"{date()}## Start training!")
         start_time = time.perf_counter()
         for epoch in range(EPOCH):
-            for userID, items in data.items():
+            for userID, items in train_data.items():
                 for itemID in items.keys():
                     r_ui = items[itemID]
                     r_ui_h = (
@@ -76,13 +57,14 @@ class FunkSVD:
                     self.qi[itemID] += self.lr * (
                         loss * old_pu - self.l * self.qi[itemID]
                     )
-            rmse = self.RMSE(data)
+            train_rmse = self.RMSE(train_data)
+            valid_rmse = self.RMSE(valid_data)
             end_time = time.perf_counter()
             print(
-                f"{date()}#### Epoch {epoch:3d}: rmse {rmse:.6f}, costs {end_time - start_time:.0f} seconds totally."
+                f"{date()}#### Epoch {epoch:3d}: rmse on train set is {train_rmse:.6f}, rmse on valid set is {valid_rmse:.6f},costs {end_time - start_time:.0f} seconds totally."
             )
-            if rmse < best_rmse:
-                best_rmse = rmse
+            if valid_rmse < best_rmse:
+                best_rmse = valid_rmse
                 self.save()
 
     def backward(self, label, predict, userID, itemID):
