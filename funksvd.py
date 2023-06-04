@@ -22,6 +22,7 @@ class FunkSVD:
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
         self.best_rmse = 100
+        self.save_path = "./models/funkSVD-4epoch.pkl"
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
         init_rmse = self.RMSE(valid_data)
@@ -96,7 +97,7 @@ class FunkSVD:
         return np.sqrt(sum / num)
 
     def save(self):
-        with open("./models/funkSVD.pkl", "wb") as f:
+        with open(self.save_path, "wb") as f:
             pickle.dump(self, f)
 
     def draw_rmse(self, fold, rmse_list):
@@ -108,3 +109,5 @@ class FunkSVD:
         plt.legend()  # 个性化图例（颜色、形状等）
         save_path = "./results/fold_" + str(fold) + ".png"
         plt.savefig(save_path)
+
+    def predict(self, test_data):
