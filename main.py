@@ -13,8 +13,8 @@ train_dump_path = "./data/train.pkl"
 
 test_dump_path = "./data/test.pkl"
 
-EPOCH = 4
-K = 100
+EPOCH = 2
+K = 20
 N_folds = 5
 
 
@@ -47,10 +47,10 @@ def dump_test_data(src_path, dumped_path):
         while line:
             user_id, n_item = line.decode().split("|")
             user_id = int(user_id)
-            data[int(user_id)] = []
+            data[int(user_id)] = [int(n_item)]
             for _ in range(int(n_item)):
                 item_id = r_file.readline().decode()
-                data[int(user_id)].append(item_id)
+                data[int(user_id)].append(int(item_id))
             line = r_file.readline()
     with open(dumped_path, "wb") as w_file:
         pickle.dump(data, w_file)
@@ -90,6 +90,7 @@ def get_test_data(dumped_path):
 
 
 def cross_val_score(model, all_data, n_folds, fold):
+    # model = FunkSVD(K=K)
     train_data = copy.deepcopy(all_data)
     valid_data = {}
     for userID, items in all_data.items():
@@ -106,16 +107,35 @@ def cross_val_score(model, all_data, n_folds, fold):
 
 
 if __name__ == "__main__":
-    # all_data = get_train_data(train_dump_path)
+    all_data = get_train_data(train_dump_path)
     # model = FunkSVD(K=K)
-
-    # for i in range(N_folds):
-    #     cross_val_score(model, all_data, N_folds, i)
-    # with open(model.save_path, "rb") as f:
-    #     model = pickle.load(f)
-    # print(model.RMSE(all_data))
-    # print(model.best_rmse)
+    # 交叉验证
+    model_list = []
+    for i in range(N_folds):
+        model = FunkSVD(FOLD=i, K=K)
+        cross_val_score(model, all_data, N_folds, i)
+        model_list.append(model)
+    # 模型聚合
+    for i in range(1, N_folds):
+        model_list[0].user_bias += model_list[i].user_bias
+        model_list[0].item_bias += model_list[i].item_bias
+        model_list[0].pu += model_list[i].pu
+        model_list[0].qi += model_list[i].qi
+        model_list[0].global_mean += model_list[i].global_mean
+    model_list[0].user_bias /= N_folds
+    model_list[0].item_bias /= N_folds
+    model_list[0].pu /= N_folds
+    model_list[0].qi /= N_folds
+    model_list[0].global_mean /= N_folds
     test_data = get_test_data(test_dump_path)
-
-    with open("./models/funkSVD-4epoch.pkl", "rb") as f:
+    with open(model_list[0].save_path, "rb") as f:
         model = pickle.load(f)
+        print("rmse on all data:", model.RMSE(all_data))
+        # print("best rmse", model.best_rmse)
+        model.predict(test_data)
+
+    # test_data = get_test_data(test_dump_path)
+    # with open("./models/funkSVD-4epoch.pkl", "rb") as f:
+    #     model = pickle.load(f)
+    #     print("model load.")
+    # model.predict(test_data)

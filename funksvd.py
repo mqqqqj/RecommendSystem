@@ -12,19 +12,23 @@ def date(f="%Y-%m-%d %H:%M:%S"):
 
 
 class FunkSVD:
-    def __init__(self, M=19835, N=624961, K=100):
+    def __init__(self, FOLD, M=19835, N=624961, K=100):
         super().__init__()
         self.user_bias = np.zeros(M)  # 用户偏置
         self.item_bias = np.zeros(N)  # 商品偏置
         self.pu = np.random.rand(M, K)
         self.qi = np.random.rand(N, K)
-        self.global_mean = 49.50457011488369  # 从data_anaylisis.py 得到
+        self.global_mean = 0  # 从data_anaylisis.py 得到
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
         self.best_rmse = 100
-        self.save_path = "./models/funkSVD-4epoch.pkl"
+        self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
+        self.global_mean = self.set_global_mean(train_data)
+        print(
+            f"{date()}## Before training, init global mean score:{self.global_mean:.6f}"
+        )
         init_rmse = self.RMSE(valid_data)
         print(f"{date()}## Before training, valid rmse is:{init_rmse:.6f}")
         print(f"{date()}## Start training!")
@@ -40,22 +44,8 @@ class FunkSVD:
                         + self.item_bias[itemID]
                         + np.dot(self.pu[userID], self.qi[itemID])
                     )
-                    loss = r_ui - r_ui_h
-                    # print(loss)
-                    if np.isnan(loss):
-                        exit()
-                    self.user_bias[userID] += self.lr * (
-                        loss - self.l * self.user_bias[userID]
-                    )
-                    self.item_bias[itemID] += self.lr * (
-                        loss - self.l * self.item_bias[itemID]
-                    )
-                    old_pu = self.pu[userID]
-                    self.pu[userID] += self.lr * (
-                        loss * self.qi[itemID] - self.l * old_pu
-                    )
-                    self.qi[itemID] += self.lr * (
-                        loss * old_pu - self.l * self.qi[itemID]
+                    self.backward(
+                        label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
                     )
             train_rmse = self.RMSE(train_data)
             valid_rmse = self.RMSE(valid_data)
@@ -69,12 +59,21 @@ class FunkSVD:
                 self.save()
         self.draw_rmse(FOLD, rmse_list)
 
+    def set_global_mean(self, train_data):
+        avg = 0
+        num = 0
+        for _, items in train_data.items():
+            for itemID in items.keys():
+                avg += items[itemID]
+                num += 1
+        avg /= num
+        return avg
+
     def backward(self, label, predict, userID, itemID):
         loss = label - predict
         self.user_bias[userID] += self.lr * (loss - self.l * self.user_bias[userID])
         self.item_bias[itemID] += self.lr * (loss - self.l * self.item_bias[itemID])
         old_pu = self.pu[userID]
-        print(loss)
         if np.isnan(loss):
             exit()
         self.pu[userID] += self.lr * (loss * self.qi[itemID] - self.l * old_pu)
@@ -88,9 +87,9 @@ class FunkSVD:
                 r_ui = items[itemID]
                 r_ui_h = (
                     self.global_mean
-                    + self.user_bias[int(userID)]
-                    + self.item_bias[int(itemID)]
-                    + np.dot(self.pu[int(userID)], self.qi[int(itemID)])
+                    + self.user_bias[userID]
+                    + self.item_bias[itemID]
+                    + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
@@ -111,3 +110,35 @@ class FunkSVD:
         plt.savefig(save_path)
 
     def predict(self, test_data):
+        with open("./results/result.txt", "w") as w_file:
+            for userID, itemlist in test_data.items():
+                w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
+                for i in range(itemlist[0]):
+                    itemID = itemlist[i + 1]
+                    r_ui_h = (
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
+                    )
+                    w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
+
+
+# print(test_data[0])
+# with open("./results/result.txt", "w") as w_file, open(
+#     "./data/test.txt", "r"
+# ) as r_file:
+#     line = r_file.readline()
+#     while line:
+#         w_file.write(line)
+#         userID, n_item = line.split("|")
+#         for _ in range(int(n_item)):
+#             itemID = r_file.readline()
+#             r_ui_h = (
+#                 self.global_mean
+#                 + self.user_bias[int(userID)]
+#                 + self.item_bias[int(itemID)]
+#                 + np.dot(self.pu[int(userID)], self.qi[int(itemID)])
+#             )
+#             w_file.write(userID + "  " + itemID + "\n")
+#         line = r_file.readline()
