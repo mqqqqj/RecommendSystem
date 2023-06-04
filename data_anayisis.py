@@ -14,18 +14,54 @@ def summary_user():
 
 def summary_items():
     items = set()
+    max_item = 0
+    min_item = 0
+    count = 0
     with open("./data/itemAttribute.txt", "r") as r_file:
         line = r_file.readline()
         while line:
             i1, i2, i3 = line.split("|")
             # print(i1, i2, i3)
+            max_item = max(max_item,int(i1))
+            min_item = min(min_item,int(i1))
             items.add(int(i1))
+            count += 1
             if i2 != "None":
                 items.add(int(i2))
+                max_item = max(max_item, int(i2))
+                min_item = min(min_item, int(i2))
+                count += 1
             if i3 != "None\n":
                 items.add(int(i3))
+                max_item = max(max_item, int(i3))
+                min_item = min(min_item, int(i3))
+                count += 1
+            line = r_file.readline()
+    print("atrr set num: ",len(items))
+    print("atrr count: ",count)
+    with open("./data/train.txt", "r") as r_file:
+        line = r_file.readline()
+        while line:
+            user_id, n_item = line.split("|")
+            for _ in range(int(n_item)):
+                item,socre=r_file.readline().split("  ")
+                items.add(int(item))
+                max_item = max(max_item, int(item))
+                min_item = min(min_item, int(item))
+            line = r_file.readline()
+    with open("./data/test.txt", "r") as r_file:
+        line = r_file.readline()
+        while line:
+            user_id, n_item = line.split("|")
+            for _ in range(int(n_item)):
+                item=r_file.readline()
+                items.add(int(item))
+                max_item = max(max_item, int(item))
+                min_item = min(min_item, int(item))
             line = r_file.readline()
     print("number of items is :", len(items))
+    print("max_item :", max_item)
+    print("min_item :", min_item)
     return items
 
 
@@ -81,13 +117,14 @@ if __name__ == "__main__":
     # 统计用户个数
     # users = summary_user()
     # 统计商品个数
-    # 发现这样算item个数没用,item在train,test,attr文件里都有,
-    # 且有的item只出现在其中一个文件,直接看attr文件最后一行是多少算了.
-    # items = summary_items()   #废弃
+    items = summary_items()
     # 个数应该是这个结果:
     # n_users = 19835
-    # n_items = 624960
+    # n_items = 607753
+    # item_id最小最大的值为：
+    # min_item = 0
+    # max_item = 624960
     # 统计矩阵的填充率
     # summary_matrix()
     # 统计用户打分分数的分布
-    summary_train()
+    # summary_train()
