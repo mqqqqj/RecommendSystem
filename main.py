@@ -11,7 +11,7 @@ test_path = "./data/test.txt"
 
 dump_path = "./data/train.pkl"
 
-EPOCH = 10
+EPOCH = 4
 K = 100
 N_folds = 5
 
@@ -62,18 +62,21 @@ def cross_val_score(model, all_data, n_folds, fold):
         keys = list(items.keys())
         chunk_size = math.ceil(n_items / n_folds)
         tempdict = dict()
-        # print(i)
         for j in range(fold * chunk_size, min((fold + 1) * chunk_size, n_items)):
             tempdict[keys[j]] = items[keys[j]]
             train_data[userID].pop(keys[j])
         valid_data[userID] = tempdict
-    # print(len(train_data), len(valid_data))
-    model.train(train_data, valid_data, EPOCH=EPOCH)
+
+    model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=fold)
 
 
 if __name__ == "__main__":
     all_data = get_train_data(dump_path)
-    model = FunkSVD(K=K)
-    # model.train(all_data, EPOCH=EPOCH)
-    for i in range(N_folds):
-        cross_val_score(model, all_data, N_folds, i)
+    # model = FunkSVD(K=K)
+
+    # for i in range(N_folds):
+    #     cross_val_score(model, all_data, N_folds, i)
+    with open("./models/funkSVD.pkl", "rb") as f:
+        model = pickle.load(f)
+    print(model.RMSE(all_data))
+    # print(model.best_rmse)

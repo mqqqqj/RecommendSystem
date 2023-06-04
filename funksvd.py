@@ -1,10 +1,10 @@
 # MatrixFactorization FunkSVD:
 # machine learning based matrix factorization optimizing prediction accuracy with MSE.
-import torch
-import torch.nn as nn
 import numpy as np
 import time
 import pickle
+from matplotlib import pyplot as plt
+import os
 
 
 def date(f="%Y-%m-%d %H:%M:%S"):
@@ -21,12 +21,14 @@ class FunkSVD:
         self.global_mean = 49.50457011488369  # 从data_anaylisis.py 得到
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
+        self.best_rmse = 100
 
-    def train(self, train_data, valid_data, EPOCH):
-        best_rmse = self.RMSE(valid_data)
-        print(f"{date()}## Before training, valid rmse is:{best_rmse:.6f}")
+    def train(self, train_data, valid_data, EPOCH, FOLD):
+        init_rmse = self.RMSE(valid_data)
+        print(f"{date()}## Before training, valid rmse is:{init_rmse:.6f}")
         print(f"{date()}## Start training!")
         start_time = time.perf_counter()
+        rmse_list = [init_rmse]
         for epoch in range(EPOCH):
             for userID, items in train_data.items():
                 for itemID in items.keys():
@@ -37,9 +39,6 @@ class FunkSVD:
                         + self.item_bias[itemID]
                         + np.dot(self.pu[userID], self.qi[itemID])
                     )
-                    # self.backward(
-                    #     label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
-                    # )
                     loss = r_ui - r_ui_h
                     # print(loss)
                     if np.isnan(loss):
@@ -59,13 +58,15 @@ class FunkSVD:
                     )
             train_rmse = self.RMSE(train_data)
             valid_rmse = self.RMSE(valid_data)
+            rmse_list.append(valid_rmse)
             end_time = time.perf_counter()
             print(
                 f"{date()}#### Epoch {epoch:3d}: rmse on train set is {train_rmse:.6f}, rmse on valid set is {valid_rmse:.6f},costs {end_time - start_time:.0f} seconds totally."
             )
-            if valid_rmse < best_rmse:
-                best_rmse = valid_rmse
+            if valid_rmse < self.best_rmse:
+                self.best_rmse = valid_rmse
                 self.save()
+        self.draw_rmse(FOLD, rmse_list)
 
     def backward(self, label, predict, userID, itemID):
         loss = label - predict
@@ -97,3 +98,13 @@ class FunkSVD:
     def save(self):
         with open("./models/funkSVD.pkl", "wb") as f:
             pickle.dump(self, f)
+
+    def draw_rmse(self, fold, rmse_list):
+        plt.switch_backend("Agg")
+        plt.figure()  # 设置图片信息 例如：plt.figure(num = 2,figsize=(640,480))
+        plt.plot(rmse_list, "b", label="rmse")
+        plt.ylabel("ValidSet RMSE")
+        plt.xlabel("EPOCH")
+        plt.legend()  # 个性化图例（颜色、形状等）
+        save_path = "./results/fold_" + str(fold) + ".png"
+        plt.savefig(save_path)
