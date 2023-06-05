@@ -4,7 +4,6 @@ import numpy as np
 import time
 import pickle
 from matplotlib import pyplot as plt
-import os
 
 
 def date(f="%Y-%m-%d %H:%M:%S"):
@@ -12,7 +11,7 @@ def date(f="%Y-%m-%d %H:%M:%S"):
 
 
 class FunkSVD:
-    def __init__(self, FOLD, M=19835, N=624961, K=100):
+    def __init__(self, FOLD, M=19835, N=624961, K=100, optim=False):
         super().__init__()
         self.user_bias = np.zeros(M)  # 用户偏置
         self.item_bias = np.zeros(N)  # 商品偏置
@@ -22,7 +21,12 @@ class FunkSVD:
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
         self.best_rmse = 100
-        self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
+        if optim:
+            self.save_path = "./models/OptimFunkSVD_" + str(FOLD) + ".pkl"
+            self.N_neighbors = 5
+        else:
+            self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
+            self.N_neighbors = 0
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
         self.global_mean = self.set_global_mean(train_data)
@@ -109,36 +113,57 @@ class FunkSVD:
         save_path = "./results/fold_" + str(fold) + ".png"
         plt.savefig(save_path)
 
-    def predict(self, test_data):
-        with open("./results/result.txt", "w") as w_file:
-            for userID, itemlist in test_data.items():
-                w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
-                for i in range(itemlist[0]):
-                    itemID = itemlist[i + 1]
-                    r_ui_h = (
-                        self.global_mean
-                        + self.user_bias[userID]
-                        + self.item_bias[itemID]
-                        + np.dot(self.pu[userID], self.qi[itemID])
-                    )
-                    w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
+    def predict(self, train_data, test_data):
+        if self.N_neighbors == 0:
+            with open("./results/result.txt", "w") as w_file:
+                for userID, itemlist in test_data.items():
+                    w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
+                    for i in range(itemlist[0]):
+                        itemID = itemlist[i + 1]
+                        r_ui_h = (
+                            self.global_mean
+                            + self.user_bias[userID]
+                            + self.item_bias[itemID]
+                            + np.dot(self.pu[userID], self.qi[itemID])
+                        )
+                        w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
+        else:
+            with open("./data/attr.pkl", "rb") as r_file:
+                item_attribute = pickle.load(r_file)
+            with open("./results/result_improved.txt", "w") as w_file:
+                for userID, itemlist in test_data.items():
+                    w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
+                    for i in range(itemlist[0]):
+                        itemID = itemlist[i + 1]
+                        r_ui_h = (
+                            self.global_mean
+                            + self.user_bias[userID]
+                            + self.item_bias[itemID]
+                            + np.dot(self.pu[userID], self.qi[itemID])
+                        )
+                        r_ui_h += self.get_score(
+                            item_attribute, train_data, userID, itemID
+                        )
+                        r_ui_h /= self.N_neighbors + 1
+                        w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
 
+    def cosine_similarity(self, item_attribute, item_a, item_b):
+        attr_a = item_attribute[item_a]
+        attr_b = item_attribute[item_b]
+        # if attr_a[0]
+        mo_a = np.sqrt(np.square(attr_a[0]) + np.square(attr_a[1]))
+        mo_b = np.sqrt(np.square(attr_b[0]) + np.square(attr_b[1]))
+        res = np.dot(attr_a, attr_b) / (mo_a * mo_b)
+        return res
 
-# print(test_data[0])
-# with open("./results/result.txt", "w") as w_file, open(
-#     "./data/test.txt", "r"
-# ) as r_file:
-#     line = r_file.readline()
-#     while line:
-#         w_file.write(line)
-#         userID, n_item = line.split("|")
-#         for _ in range(int(n_item)):
-#             itemID = r_file.readline()
-#             r_ui_h = (
-#                 self.global_mean
-#                 + self.user_bias[int(userID)]
-#                 + self.item_bias[int(itemID)]
-#                 + np.dot(self.pu[int(userID)], self.qi[int(itemID)])
-#             )
-#             w_file.write(userID + "  " + itemID + "\n")
-#         line = r_file.readline()
+    def get_score(self, item_attribute, train_data, userID, itemID):
+        items = train_data[userID]
+        similarity_dict = dict()
+        for item in items.keys():
+            cos = self.cosine_similarity(item_attribute, itemID, item)
+            similarity_dict[item] = cos
+        sorted_list = sorted(similarity_dict.items(), key=lambda x: x[1], reverse=False)
+        score = 0
+        for i in range(min(self.N_neighbors, len(sorted_list))):
+            score += train_data[userID][sorted_list[i]]
+        return score

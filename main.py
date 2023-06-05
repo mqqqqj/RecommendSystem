@@ -9,11 +9,15 @@ train_path = "./data/train.txt"
 
 test_path = "./data/test.txt"
 
+attr_path = "./data/itemAttribute.txt"
+
 train_dump_path = "./data/train.pkl"
 
 test_dump_path = "./data/test.pkl"
 
-EPOCH = 2
+attr_dump_path = "./data/attr.pkl"
+
+EPOCH = 1
 K = 20
 N_folds = 5
 
@@ -57,6 +61,20 @@ def dump_test_data(src_path, dumped_path):
     return data
 
 
+def dump_attr(src_path, dumped_path):
+    item_attribute = dict()
+    with open(src_path, "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            itemID, attr_1, attr_2 = line.split("|")
+            attr_1 = int(attr_1) if attr_1 != "None" else -1
+            attr_2 = int(attr_2) if attr_2 != "None\n" else -1
+            item_attribute[int(itemID)] = np.array([attr_1, attr_2])
+    with open(dumped_path, "wb") as w_file:
+        pickle.dump(item_attribute, w_file)
+    return item_attribute
+
+
 def get_train_data(dumped_path):
     """
     get train data
@@ -89,6 +107,22 @@ def get_test_data(dumped_path):
         return data
 
 
+def get_attr(dumped_path):
+    """
+    get attr data
+    """
+    if os.path.exists(dumped_path):
+        print("attr has processed.")
+        with open(dumped_path, "rb") as f:
+            data = pickle.load(f)
+            print("attr load from pickle succeed.")
+            return data
+    else:
+        print("Process attr from txt.")
+        data = dump_attr(attr_path, dumped_path)
+        return data
+
+
 def cross_val_score(model, all_data, n_folds, fold):
     # model = FunkSVD(K=K)
     train_data = copy.deepcopy(all_data)
@@ -107,12 +141,13 @@ def cross_val_score(model, all_data, n_folds, fold):
 
 
 if __name__ == "__main__":
-    all_data = get_train_data(train_dump_path)
-    # model = FunkSVD(K=K)
+    all_data = get_train_data(train_dump_path)  # 这个alldata指的是train.txt所有数据
+    test_data = get_test_data(test_dump_path)  # 这个testdata指的是test.txt
+    attr = get_attr(attr_dump_path)  # itemAttribute.txt
     # 交叉验证
     model_list = []
     for i in range(N_folds):
-        model = FunkSVD(FOLD=i, K=K)
+        model = FunkSVD(FOLD=i, K=K, optim=True)
         cross_val_score(model, all_data, N_folds, i)
         model_list.append(model)
     # 模型聚合
@@ -127,15 +162,8 @@ if __name__ == "__main__":
     model_list[0].pu /= N_folds
     model_list[0].qi /= N_folds
     model_list[0].global_mean /= N_folds
-    test_data = get_test_data(test_dump_path)
     with open(model_list[0].save_path, "rb") as f:
         model = pickle.load(f)
         print("rmse on all data:", model.RMSE(all_data))
         # print("best rmse", model.best_rmse)
         model.predict(test_data)
-
-    # test_data = get_test_data(test_dump_path)
-    # with open("./models/funkSVD-4epoch.pkl", "rb") as f:
-    #     model = pickle.load(f)
-    #     print("model load.")
-    # model.predict(test_data)

@@ -22,8 +22,8 @@ def summary_items():
         while line:
             i1, i2, i3 = line.split("|")
             # print(i1, i2, i3)
-            max_item = max(max_item,int(i1))
-            min_item = min(min_item,int(i1))
+            max_item = max(max_item, int(i1))
+            min_item = min(min_item, int(i1))
             items.add(int(i1))
             count += 1
             if i2 != "None":
@@ -37,14 +37,14 @@ def summary_items():
                 min_item = min(min_item, int(i3))
                 count += 1
             line = r_file.readline()
-    print("atrr set num: ",len(items))
-    print("atrr count: ",count)
+    print("atrr set num: ", len(items))
+    print("atrr count: ", count)
     with open("./data/train.txt", "r") as r_file:
         line = r_file.readline()
         while line:
             user_id, n_item = line.split("|")
             for _ in range(int(n_item)):
-                item,socre=r_file.readline().split("  ")
+                item, socre = r_file.readline().split("  ")
                 items.add(int(item))
                 max_item = max(max_item, int(item))
                 min_item = min(min_item, int(item))
@@ -54,7 +54,7 @@ def summary_items():
         while line:
             user_id, n_item = line.split("|")
             for _ in range(int(n_item)):
-                item=r_file.readline()
+                item = r_file.readline()
                 items.add(int(item))
                 max_item = max(max_item, int(item))
                 min_item = min(min_item, int(item))
@@ -106,6 +106,7 @@ def summary_train():
         vals += v
     mean_score /= vals
     print("mean score:", mean_score)
+    print("num of scoring:", vals)
     # 按value升序排列
     sorted_list = sorted(score_dict.items(), key=lambda x: x[1])
     print("最不常打出的分数", sorted_list[:4])
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     # 统计用户个数
     # users = summary_user()
     # 统计商品个数
-    items = summary_items()
+    # items = summary_items()
     # 个数应该是这个结果:
     # n_users = 19835
     # n_items = 607753
@@ -125,6 +126,7 @@ if __name__ == "__main__":
     # min_item = 0
     # max_item = 624960
     # 统计矩阵的填充率
-    # summary_matrix()
+    non_zero, fill_rate = summary_matrix()
+    print(non_zero, fill_rate)
     # 统计用户打分分数的分布
     # summary_train()

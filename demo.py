@@ -12,7 +12,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from my_dataset import MyDataset
+from attributeBased import MyDataset
 from funksvd import FunkSVD
 
 train_path = "./data/train.txt"
