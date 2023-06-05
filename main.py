@@ -17,8 +17,8 @@ test_dump_path = "./data/test.pkl"
 
 attr_dump_path = "./data/attr.pkl"
 
-EPOCH = 1
-K = 20
+EPOCH = 20
+K = 100
 N_folds = 5
 
 
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     # 交叉验证
     model_list = []
     for i in range(N_folds):
-        model = FunkSVD(FOLD=i, K=K, optim=True)
+        model = FunkSVD(FOLD=i, K=K, optim=False)
         cross_val_score(model, all_data, N_folds, i)
         model_list.append(model)
     # 模型聚合
@@ -166,4 +166,4 @@ if __name__ == "__main__":
         model = pickle.load(f)
         print("rmse on all data:", model.RMSE(all_data))
         # print("best rmse", model.best_rmse)
-        model.predict(test_data)
+        model.predict(all_data, test_data)

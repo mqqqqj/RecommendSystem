@@ -1,27 +1,47 @@
-# 我们对商品进行余弦相似度计算
-import numpy as np
+# 基于图联通的相似度算法
+class UnionFind(object):
+    """并查集类"""
 
-K = 5
+    def __init__(self, n):
+        """长度为n的并查集"""
+        self.uf = [-1 for i in range(n + 1)]  # 列表0位置空出
+        self.sets_count = n  # 判断并查集里共有几个集合, 初始化默认互相独立
 
+    # def find(self, p):
+    #     """查找p的根结点(祖先)"""
+    #     r = p                                   # 初始p
+    #     while self.uf[p] > 0:
+    #         p = self.uf[p]
+    #     while r != p:                           # 路径压缩, 把搜索下来的结点祖先全指向根结点
+    #         self.uf[r], r = p, self.uf[r]
+    #     return p
 
-def cosine_similarity(item_attribute, item_a, item_b):
-    attr_a = item_attribute[item_a]
-    attr_b = item_attribute[item_b]
-    mo_a = np.sqrt(np.square(attr_a[0]) + np.square(attr_a[1]))
-    mo_b = np.sqrt(np.square(attr_b[0]) + np.square(attr_b[1]))
-    res = np.dot(attr_a, attr_b) / (mo_a * mo_b)
-    return res
+    # def find(self, p):
+    #     while self.uf[p] >= 0:
+    #         p = self.uf[p]
+    #     return p
 
+    def find(self, p):
+        """尾递归"""
+        if self.uf[p] < 0:
+            return p
+        self.uf[p] = self.find(self.uf[p])
+        return self.uf[p]
 
-def get_score(item_attribute, train_data, userID, itemID):
-    items = train_data[userID]
-    similarity_dict = dict()
-    for item in items.keys():
-        cos = cosine_similarity(item_attribute, itemID, item)
-        similarity_dict[item] = cos
-    sorted_list = sorted(similarity_dict.items(), key=lambda x: x[1], reverse=False)
-    score = 0
-    for i in range(K):
-        score += train_data[userID][sorted_list[i]]
-    # score /= K
-    return score
+    def union(self, p, q):
+        """连通p,q 让q指向p"""
+        proot = self.find(p)
+        qroot = self.find(q)
+        if proot == qroot:
+            return
+        elif self.uf[proot] > self.uf[qroot]:  # 负数比较, 左边规模更小
+            self.uf[qroot] += self.uf[proot]
+            self.uf[proot] = qroot
+        else:
+            self.uf[proot] += self.uf[qroot]  # 规模相加
+            self.uf[qroot] = proot
+        self.sets_count -= 1  # 连通后集合总数减一
+
+    def is_connected(self, p, q):
+        """判断pq是否已经连通"""
+        return self.find(p) == self.find(q)  # 即判断两个结点是否是属于同一个祖先
