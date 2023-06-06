@@ -18,8 +18,8 @@ test_dump_path = "./data/test.pkl"
 attr_dump_path = "./data/attr.pkl"
 
 EPOCH = 1
-K = 20
-N_folds = 2
+K = 100
+N_folds = 5
 
 
 def dump_train_data(src_path, dumped_path):
@@ -66,10 +66,11 @@ def dump_attr(src_path, dumped_path):
     with open(src_path, "r") as file:
         lines = file.readlines()
         for line in lines:
-            itemID, attr_1, attr_2 = line.split("|")
+            itemID, attr_1, attr_2 = line.strip().split("|")
             attr_1 = int(attr_1) if attr_1 != "None" else -1
-            attr_2 = int(attr_2) if attr_2 != "None\n" else -1
-            item_attribute[int(itemID)] = np.array([attr_1, attr_2])
+            attr_2 = int(attr_2) if attr_2 != "None" else -1
+            # item_attribute[int(itemID)] = np.array([attr_1, attr_2])
+            item_attribute[int(itemID)] = [attr_1, attr_2]
     with open(dumped_path, "wb") as w_file:
         pickle.dump(item_attribute, w_file)
     return item_attribute
@@ -147,24 +148,26 @@ if __name__ == "__main__":
     for i in range(N_folds):
         model = FunkSVD(FOLD=i, K=K, optim=True)
         train_data, valid_data = cross_val_score(all_data, N_folds, i)
-        model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=N_folds)
+        model.dump_valid_cos_simi(valid_data,train_data,i)
+        print("finish dump valid cos similarity, fold: ",i)
+        # model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=i)
         model_list.append(model)
     # 模型聚合
-    for i in range(1, N_folds):
-        model_list[0].user_bias += model_list[i].user_bias
-        model_list[0].item_bias += model_list[i].item_bias
-        model_list[0].pu += model_list[i].pu
-        model_list[0].qi += model_list[i].qi
-        model_list[0].global_mean += model_list[i].global_mean
-    model_list[0].user_bias /= N_folds
-    model_list[0].item_bias /= N_folds
-    model_list[0].pu /= N_folds
-    model_list[0].qi /= N_folds
-    model_list[0].global_mean /= N_folds
-    with open(model_list[0].save_path, "rb") as f:
-    # with open("./models/OptimFunkSVD_0.pkl", "rb") as f:
-        model = pickle.load(f)
-        print("rmse on all data:", model.RMSE(all_data))
-        print(model.optim)
-        # print("best rmse", model.best_rmse)
-        model.predict(all_data, test_data)
+    # for i in range(1, N_folds):
+    #     model_list[0].user_bias += model_list[i].user_bias
+    #     model_list[0].item_bias += model_list[i].item_bias
+    #     model_list[0].pu += model_list[i].pu
+    #     model_list[0].qi += model_list[i].qi
+    #     model_list[0].global_mean += model_list[i].global_mean
+    # model_list[0].user_bias /= N_folds
+    # model_list[0].item_bias /= N_folds
+    # model_list[0].pu /= N_folds
+    # model_list[0].qi /= N_folds
+    # model_list[0].global_mean /= N_folds
+    # with open(model_list[0].save_path, "rb") as f:
+    # # with open("./models/OptimFunkSVD_0.pkl", "rb") as f:
+    #     model = pickle.load(f)
+    #     print("rmse on all data:", model.RMSE(all_data))
+    #     print(model.optim)
+    #     # print("best rmse", model.best_rmse)
+    #     model.predict(all_data, test_data)
