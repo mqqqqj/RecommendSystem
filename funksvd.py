@@ -29,7 +29,7 @@ class FunkSVD:
         self.cos_dump_path = "./data/cos_simi_" + str(FOLD) + ".pkl"
         self.euc_dump_path = "./data/euc_simi_" + str(FOLD) + ".pkl"
         if self.optim:
-            self.save_path = "./models/OptimFunkSVD_" + str(FOLD) + ".pkl"
+            self.save_path = "./models/Opt_"+ self.opt_method+ "FunkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 5
         else:
             self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
@@ -59,12 +59,9 @@ class FunkSVD:
                     self.backward(
                         label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
                     )
-            print("here")
             if self.optim:
                 train_rmse = self.opt_RMSE(train_data, False)
-                print("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
                 valid_rmse = self.opt_RMSE(valid_data, True)
-                # print("here")
             else:
                 train_rmse = self.RMSE(train_data)
                 valid_rmse = self.RMSE(valid_data)
@@ -143,7 +140,6 @@ class FunkSVD:
                         r_ui_h = r_ui_h * (1 - smi_rate) + similarity_score * smi_rate
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
-            print(userID)
         return np.sqrt(sum / num)
 
     def save(self):
@@ -181,7 +177,7 @@ class FunkSVD:
         else:
             with open("./data/attr.pkl", "rb") as r_file:
                 item_attribute = pickle.load(r_file)
-            with open("./results/result_improved.txt", "w") as w_file, open("./results/cos_res.txt", "w") as w2f:
+            with open("./results/result_improved_cos.txt", "w") as w_file, open("./results/cos_res.txt", "w") as w2f:
                 for userID, itemlist in test_data.items():
                     w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
                     w2f.write(str(userID) + "|" + str(itemlist[0]) + "\n")
