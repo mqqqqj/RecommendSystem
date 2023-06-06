@@ -2,6 +2,7 @@
 # machine learning based matrix factorization optimizing prediction accuracy with MSE.
 import numpy as np
 import time
+import math
 import pickle
 from matplotlib import pyplot as plt
 
@@ -21,11 +22,12 @@ class FunkSVD:
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
         self.best_rmse = 100
-        if optim:
+        self.optim = optim
+        if self.optim:
             self.save_path = "./models/OptimFunkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 5
         else:
-            self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
+            self.save_path = "./models/10epoch_funkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 0
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
@@ -38,6 +40,7 @@ class FunkSVD:
         print(f"{date()}## Start training!")
         start_time = time.perf_counter()
         rmse_list = [init_rmse]
+
         for epoch in range(EPOCH):
             for userID, items in train_data.items():
                 for itemID in items.keys():
@@ -51,8 +54,14 @@ class FunkSVD:
                     self.backward(
                         label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
                     )
-            train_rmse = self.RMSE(train_data)
-            valid_rmse = self.RMSE(valid_data)
+            print("here")
+            if self.optim:
+                train_rmse = self.opt_RMSE(train_data, train_data)
+                valid_rmse = self.opt_RMSE(valid_data, train_data)
+                # print("here")
+            else:
+                train_rmse = self.RMSE(train_data)
+                valid_rmse = self.RMSE(valid_data)
             rmse_list.append(valid_rmse)
             end_time = time.perf_counter()
             print(
@@ -99,6 +108,40 @@ class FunkSVD:
                 num += 1
         return np.sqrt(sum / num)
 
+    def opt_RMSE(self, data, train_data):
+        with open("./data/attr.pkl", "rb") as r_file:
+            item_attribute = pickle.load(r_file)
+        sum = 0
+        num = 0
+        count = 0
+        for userID, items in data.items():
+            for itemID in items.keys():
+                r_ui = items[itemID]
+                r_ui_h = (
+                    self.global_mean
+                    + self.user_bias[userID]
+                    + self.item_bias[itemID]
+                    + np.dot(self.pu[userID], self.qi[itemID])
+                )
+
+                if itemID in item_attribute.keys():
+                    count += 1
+                    if count % 1000 == 0:
+                        print("hahhhh")
+                    cos_smi_rate = 0.4
+                    cos_similarity_score = self.get_cos_simi_score(
+                        item_attribute, train_data, userID, itemID
+                    )
+                    if cos_similarity_score == 0:
+                        cos_smi_rate = 0
+                    r_ui_h = (
+                        r_ui_h * (1 - cos_smi_rate)
+                        + cos_similarity_score * cos_smi_rate
+                    )
+                sum += (r_ui - r_ui_h) ** 2
+                num += 1
+        return np.sqrt(sum / num)
+
     def save(self):
         with open(self.save_path, "wb") as f:
             pickle.dump(self, f)
@@ -110,12 +153,15 @@ class FunkSVD:
         plt.ylabel("ValidSet RMSE")
         plt.xlabel("EPOCH")
         plt.legend()  # 个性化图例（颜色、形状等）
-        save_path = "./results/fold_" + str(fold) + ".png"
+        if self.optim:
+            save_path = "./results/OptimFunkSVD_fold_" + str(fold) + ".png"
+        else:
+            save_path = "./results/10epoch_FunkSVD_fold_" + str(fold) + ".png"
         plt.savefig(save_path)
 
     def predict(self, train_data, test_data):
-        if self.N_neighbors == 0:
-            with open("./results/result.txt", "w") as w_file:
+        if self.optim == False:
+            with open("./results/10epoch_result.txt", "w") as w_file:
                 for userID, itemlist in test_data.items():
                     w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
                     for i in range(itemlist[0]):
@@ -126,14 +172,18 @@ class FunkSVD:
                             + self.item_bias[itemID]
                             + np.dot(self.pu[userID], self.qi[itemID])
                         )
+                        r_ui_h = min(100, max(0, r_ui_h))
                         w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
         else:
             with open("./data/attr.pkl", "rb") as r_file:
                 item_attribute = pickle.load(r_file)
-            with open("./results/result_improved.txt", "w") as w_file:
+            with open("./results/result_improved.txt", "w") as w_file, open(
+                "./results/cos_res.txt", "w"
+            ) as w2f:
                 for userID, itemlist in test_data.items():
                     w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
-                    for i in range(itemlist[0]):
+                    w2f.write(str(userID) + "|" + str(itemlist[0]) + "\n")
+                    for i in range(int(itemlist[0])):
                         itemID = itemlist[i + 1]
                         r_ui_h = (
                             self.global_mean
@@ -141,29 +191,78 @@ class FunkSVD:
                             + self.item_bias[itemID]
                             + np.dot(self.pu[userID], self.qi[itemID])
                         )
-                        r_ui_h += self.get_score(
-                            item_attribute, train_data, userID, itemID
-                        )
-                        r_ui_h /= self.N_neighbors + 1
+                        pred = r_ui_h
+                        cos_similarity_score = 0
+                        if itemID in item_attribute.keys():
+                            cos_smi_rate = 0.4
+                            cos_similarity_score = self.get_cos_simi_score(
+                                item_attribute, train_data, userID, itemID
+                            )
+                            if cos_similarity_score == 0:
+                                cos_smi_rate = 0
+                            # print("cos_simi: ", cos_similarity_score)
+                            # print("predict_score: ", r_ui_h)
+                            r_ui_h = (
+                                r_ui_h * (1 - cos_smi_rate)
+                                + cos_similarity_score * cos_smi_rate
+                            )
+                        # print("final: ", r_ui_h)
+                        r_ui_h = min(100, max(0, r_ui_h))
                         w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
+                        w2f.write(
+                            str(itemID)
+                            + "  "
+                            + str(r_ui_h)
+                            + "  cos:"
+                            + str(cos_similarity_score)
+                            + "  pred:"
+                            + str(pred)
+                            + "\n"
+                        )
 
     def cosine_similarity(self, item_attribute, item_a, item_b):
         attr_a = item_attribute[item_a]
         attr_b = item_attribute[item_b]
         # if attr_a[0]
-        mo_a = np.sqrt(np.square(attr_a[0]) + np.square(attr_a[1]))
-        mo_b = np.sqrt(np.square(attr_b[0]) + np.square(attr_b[1]))
+        if (attr_a[0] ** 2 + attr_a[1] ** 2) < 0:
+            print(item_a)
+            print(item_attribute[item_a])
+            print(attr_a[0])
+            print(attr_a[1])
+            print("vala:", attr_a[0] ** 2 + attr_a[1] ** 2)
+        if (attr_b[0] ** 2 + attr_b[1] ** 2) < 0:
+            print(item_b)
+            print(item_attribute[item_b])
+            print("valb:", attr_b[0] ** 2 + attr_b[1] ** 2)
+        mo_a = math.sqrt(attr_a[0] ** 2 + attr_a[1] ** 2)
+        mo_b = math.sqrt(attr_b[0] ** 2 + attr_b[1] ** 2)
         res = np.dot(attr_a, attr_b) / (mo_a * mo_b)
         return res
 
-    def get_score(self, item_attribute, train_data, userID, itemID):
+    def get_cos_simi_score(self, item_attribute, train_data, userID, itemID):
         items = train_data[userID]
         similarity_dict = dict()
         for item in items.keys():
+            if item not in item_attribute.keys():
+                continue
+            # print(item)
+            # print(item_attribute[item])
+            if item_attribute[item][0] == -1 or item_attribute[item][1] == -1:
+                continue
             cos = self.cosine_similarity(item_attribute, itemID, item)
-            similarity_dict[item] = cos
-        sorted_list = sorted(similarity_dict.items(), key=lambda x: x[1], reverse=False)
+            if cos > 0.5:
+                similarity_dict[item] = cos
+        similarity_list = sorted(
+            similarity_dict.items(), key=lambda x: x[1], reverse=False
+        )
+        # if len(similarity_list) < self.N_neighbors:
+        #     self.N_neighbors = len(similarity_list)
         score = 0
-        for i in range(min(self.N_neighbors, len(sorted_list))):
-            score += train_data[userID][sorted_list[i]]
+        simi = 0
+        for i in range(min(self.N_neighbors, len(similarity_list))):
+            score += train_data[userID][similarity_list[i][0]] * similarity_list[i][1]
+            simi += similarity_list[i][1]
+        if simi == 0:
+            return 0
+        score = score / simi
         return score

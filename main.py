@@ -17,7 +17,7 @@ test_dump_path = "./data/test.pkl"
 
 attr_dump_path = "./data/attr.pkl"
 
-EPOCH = 20
+EPOCH = 10
 K = 100
 N_folds = 5
 
@@ -123,8 +123,7 @@ def get_attr(dumped_path):
         return data
 
 
-def cross_val_score(model, all_data, n_folds, fold):
-    # model = FunkSVD(K=K)
+def cross_val_score(all_data, n_folds, fold):
     train_data = copy.deepcopy(all_data)
     valid_data = {}
     for userID, items in all_data.items():
@@ -136,8 +135,7 @@ def cross_val_score(model, all_data, n_folds, fold):
             tempdict[keys[j]] = items[keys[j]]
             train_data[userID].pop(keys[j])
         valid_data[userID] = tempdict
-
-    model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=fold)
+    return train_data, valid_data
 
 
 if __name__ == "__main__":
@@ -148,7 +146,8 @@ if __name__ == "__main__":
     model_list = []
     for i in range(N_folds):
         model = FunkSVD(FOLD=i, K=K, optim=False)
-        cross_val_score(model, all_data, N_folds, i)
+        train_data, valid_data = cross_val_score(all_data, N_folds, i)
+        model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=i)
         model_list.append(model)
     # 模型聚合
     for i in range(1, N_folds):
@@ -163,7 +162,9 @@ if __name__ == "__main__":
     model_list[0].qi /= N_folds
     model_list[0].global_mean /= N_folds
     with open(model_list[0].save_path, "rb") as f:
+        # with open("./models/OptimFunkSVD_0.pkl", "rb") as f:
         model = pickle.load(f)
         print("rmse on all data:", model.RMSE(all_data))
+        print(model.optim)
         # print("best rmse", model.best_rmse)
         model.predict(all_data, test_data)
