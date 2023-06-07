@@ -35,10 +35,13 @@ class FunkSVD:
             )
             self.N_neighbors = 5
         else:
-            self.save_path = "./models/10epoch_funkSVD_" + str(FOLD) + ".pkl"
+            self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 0
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
+        """
+        训练模型，train_data 用作训练，valid_data用作验证
+        """
         self.global_mean = self.set_global_mean(train_data)
         print(
             f"{date()}## Before training, init global mean score:{self.global_mean:.6f}"
@@ -79,6 +82,9 @@ class FunkSVD:
         self.draw_rmse(FOLD, rmse_list, EPOCH)
 
     def set_global_mean(self, train_data):
+        """
+        获取train_data上的评分平均值
+        """
         avg = 0
         num = 0
         for _, items in train_data.items():
@@ -89,6 +95,9 @@ class FunkSVD:
         return avg
 
     def backward(self, label, predict, userID, itemID):
+        """
+        更新矩阵参数
+        """
         loss = label - predict
         self.user_bias[userID] += self.lr * (loss - self.l * self.user_bias[userID])
         self.item_bias[itemID] += self.lr * (loss - self.l * self.item_bias[itemID])
@@ -174,7 +183,7 @@ class FunkSVD:
 
     def predict(self, train_data, test_data):
         if self.optim == False:
-            with open("./results/10epoch_result.txt", "w") as w_file:
+            with open("./results/result.txt", "w") as w_file:
                 for userID, itemlist in test_data.items():
                     w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
                     for i in range(itemlist[0]):
