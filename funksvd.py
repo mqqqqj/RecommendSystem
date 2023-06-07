@@ -30,7 +30,7 @@ class FunkSVD:
         self.cos_dump_path = "./data/cos_simi_" + str(FOLD) + ".pkl"
         self.euc_dump_path = "./data/euc_simi_" + str(FOLD) + ".pkl"
         if self.optim:
-            self.save_path = "./models/Opt_"+ self.opt_method+ "FunkSVD_" + str(FOLD) + ".pkl"
+            self.save_path = "./models_"+self.opt_method+"/opt_"+ self.opt_method+ "_funkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 5
         else:
             self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
@@ -55,10 +55,10 @@ class FunkSVD:
                 for itemID in items.keys():
                     r_ui = items[itemID]
                     r_ui_h = (
-                        self.global_mean
-                        + self.user_bias[userID]
-                        + self.item_bias[itemID]
-                        + np.dot(self.pu[userID], self.qi[itemID])
+                            self.global_mean
+                            + self.user_bias[userID]
+                            + self.item_bias[itemID]
+                            + np.dot(self.pu[userID], self.qi[itemID])
                     )
                     self.backward(
                         label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
@@ -112,10 +112,10 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                    self.global_mean
-                    + self.user_bias[userID]
-                    + self.item_bias[itemID]
-                    + np.dot(self.pu[userID], self.qi[itemID])
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
@@ -135,10 +135,10 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                    self.global_mean
-                    + self.user_bias[userID]
-                    + self.item_bias[itemID]
-                    + np.dot(self.pu[userID], self.qi[itemID])
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 if is_valid and userID in similarity.keys():
                     item_simi = similarity[userID]
@@ -217,7 +217,7 @@ class FunkSVD:
                         pred = r_ui_h
                         similarity_score = 0
                         if itemID in item_attribute.keys():
-                            smi_rate = 0.4
+                            smi_rate = 0.2
                             if self.opt_method == "cos":
                                 similarity_score = self.get_cos_simi_score(
                                     item_attribute, train_data, userID, itemID
