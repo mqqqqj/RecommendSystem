@@ -24,15 +24,13 @@ class FunkSVD:
         self.lr = 0.0005  # 学习率
         self.l = 0.02  # 正则化系数
         self.best_rmse = 100
-        self.opt_method = "euc"
+        self.opt_method = "cos"
         self.optim = optim
         self.fold = FOLD
         self.cos_dump_path = "./data/cos_simi_" + str(FOLD) + ".pkl"
         self.euc_dump_path = "./data/euc_simi_" + str(FOLD) + ".pkl"
         if self.optim:
-            self.save_path = (
-                "./models/" + self.opt_method + "FunkSVD_" + str(FOLD) + ".pkl"
-            )
+            self.save_path = "./models_"+self.opt_method+"/opt_"+ self.opt_method+ "_funkSVD_" + str(FOLD) + ".pkl"
             self.N_neighbors = 5
         else:
             self.save_path = "./models/funkSVD_" + str(FOLD) + ".pkl"
@@ -57,10 +55,10 @@ class FunkSVD:
                 for itemID in items.keys():
                     r_ui = items[itemID]
                     r_ui_h = (
-                        self.global_mean
-                        + self.user_bias[userID]
-                        + self.item_bias[itemID]
-                        + np.dot(self.pu[userID], self.qi[itemID])
+                            self.global_mean
+                            + self.user_bias[userID]
+                            + self.item_bias[itemID]
+                            + np.dot(self.pu[userID], self.qi[itemID])
                     )
                     self.backward(
                         label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
@@ -114,10 +112,10 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                    self.global_mean
-                    + self.user_bias[userID]
-                    + self.item_bias[itemID]
-                    + np.dot(self.pu[userID], self.qi[itemID])
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
@@ -137,15 +135,15 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                    self.global_mean
-                    + self.user_bias[userID]
-                    + self.item_bias[itemID]
-                    + np.dot(self.pu[userID], self.qi[itemID])
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 if is_valid and userID in similarity.keys():
                     item_simi = similarity[userID]
                     if itemID in item_simi.keys():
-                        smi_rate = 0.3
+                        smi_rate = 0.2
                         similarity_score = item_simi[itemID]
                         if similarity_score == 0:
                             smi_rate = 0
@@ -211,15 +209,15 @@ class FunkSVD:
                     for i in range(int(itemlist[0])):
                         itemID = itemlist[i + 1]
                         r_ui_h = (
-                            self.global_mean
-                            + self.user_bias[userID]
-                            + self.item_bias[itemID]
-                            + np.dot(self.pu[userID], self.qi[itemID])
+                                self.global_mean
+                                + self.user_bias[userID]
+                                + self.item_bias[itemID]
+                                + np.dot(self.pu[userID], self.qi[itemID])
                         )
                         pred = r_ui_h
                         similarity_score = 0
                         if itemID in item_attribute.keys():
-                            smi_rate = 0.4
+                            smi_rate = 0.2
                             if self.opt_method == "cos":
                                 similarity_score = self.get_cos_simi_score(
                                     item_attribute, train_data, userID, itemID
@@ -230,21 +228,12 @@ class FunkSVD:
                                 )
                             if similarity_score == 0:
                                 smi_rate = 0
-                            r_ui_h = (
-                                r_ui_h * (1 - smi_rate) + similarity_score * smi_rate
-                            )
+                            r_ui_h = r_ui_h * (1 - smi_rate) + similarity_score * smi_rate
                         r_ui_h = min(100, max(0, r_ui_h))
                         w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
                         w2f.write(
-                            str(itemID)
-                            + "  "
-                            + str(r_ui_h)
-                            + "  opt:"
-                            + str(similarity_score)
-                            + "  pred:"
-                            + str(pred)
-                            + "\n"
-                        )
+                            str(itemID) + "  " + str(r_ui_h) + "  opt:" + str(similarity_score) + "  pred:" + str(
+                                pred) + "\n")
 
     def cosine_similarity(self, item_attribute, item_a, item_b):
         attr_a = item_attribute[item_a]
@@ -265,9 +254,7 @@ class FunkSVD:
             cos = self.cosine_similarity(item_attribute, itemID, item)
             if cos > 0.5:
                 similarity_dict[item] = cos
-        similarity_list = sorted(
-            similarity_dict.items(), key=lambda x: x[1], reverse=False
-        )
+        similarity_list = sorted(similarity_dict.items(), key=lambda x: x[1], reverse=False)
         score = 0
         simi = 0
         for i in range(min(self.N_neighbors, len(similarity_list))):
@@ -316,11 +303,9 @@ class FunkSVD:
             if item_attribute[item][0] == -1 or item_attribute[item][1] == -1:
                 continue
             distance = self.euclidean_distance_similarity(item_attribute, itemID, item)
-            if distance < 5000:
+            if distance < 1000:
                 similarity_dict[item] = distance
-        similarity_list = sorted(
-            similarity_dict.items(), key=lambda x: x[1], reverse=True
-        )
+        similarity_list = sorted(similarity_dict.items(), key=lambda x: x[1], reverse=True)
         score = 0
         simi = 0
         for i in range(min(self.N_neighbors, len(similarity_list))):

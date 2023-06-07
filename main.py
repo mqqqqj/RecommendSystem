@@ -151,16 +151,16 @@ def avg_predict(data, model_list, is_valid):
         similarity = [{}, {}, {}, {}, {}]
         for i in range(N_folds):
             if (
-                is_valid
-                and model_list[i].opt_method == "cos"
-                and os.path.exists(model_list[i].cos_dump_path)
+                    is_valid
+                    and model_list[i].opt_method == "cos"
+                    and os.path.exists(model_list[i].cos_dump_path)
             ):
                 with open(model_list[i].cos_dump_path, "rb") as f:
                     similarity[i] = pickle.load(f)
             if (
-                is_valid
-                and model_list[i].opt_method == "euc"
-                and os.path.exists(model_list[i].euc_dump_path)
+                    is_valid
+                    and model_list[i].opt_method == "euc"
+                    and os.path.exists(model_list[i].euc_dump_path)
             ):
                 with open(model_list[i].euc_dump_path, "rb") as f:
                     similarity[i] = pickle.load(f)
@@ -172,10 +172,10 @@ def avg_predict(data, model_list, is_valid):
                 r_ui_h = [0, 0, 0, 0, 0]
                 for i in range(N_folds):
                     r_ui_h[i] = (
-                        model_list[i].global_mean
-                        + model_list[i].user_bias[userID]
-                        + model_list[i].item_bias[itemID]
-                        + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
+                            model_list[i].global_mean
+                            + model_list[i].user_bias[userID]
+                            + model_list[i].item_bias[itemID]
+                            + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
                     )
                     if is_valid and userID in similarity[i].keys():
                         item_simi = similarity[i][userID]
@@ -185,7 +185,7 @@ def avg_predict(data, model_list, is_valid):
                             if similarity_score == 0:
                                 smi_rate = 0
                             r_ui_h[i] = (
-                                r_ui_h[i] * (1 - smi_rate) + similarity_score * smi_rate
+                                    r_ui_h[i] * (1 - smi_rate) + similarity_score * smi_rate
                             )
                 avg_score = np.mean(r_ui_h)
                 sum += (r_ui - avg_score) ** 2
@@ -201,10 +201,10 @@ def avg_predict(data, model_list, is_valid):
                 r_ui_h = [0, 0, 0, 0, 0]
                 for i in range(N_folds):
                     r_ui_h[i] = (
-                        model_list[i].global_mean
-                        + model_list[i].user_bias[userID]
-                        + model_list[i].item_bias[itemID]
-                        + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
+                            model_list[i].global_mean
+                            + model_list[i].user_bias[userID]
+                            + model_list[i].item_bias[itemID]
+                            + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
                     )
                 avg_score = np.mean(r_ui_h)
                 sum += (r_ui - avg_score) ** 2
@@ -212,50 +212,50 @@ def avg_predict(data, model_list, is_valid):
         return np.sqrt(sum / num)
 
 
-def optfunksvd_avg_test(test_data, model_list):
+def optfunksvd_avg_test(test_data, train_data, model_list):
     """
     使用优化算法对测试集进行评分
     """
     assert model_list[0].optim is True
-    similarity = [{}, {}, {}, {}, {}]
-    for i in range(N_folds):
-        if model_list[i].opt_method == "cos" and os.path.exists(
-            model_list[i].cos_dump_path
-        ):
-            with open(model_list[i].cos_dump_path, "rb") as f:
-                similarity[i] = pickle.load(f)
-        if model_list[i].opt_method == "euc" and os.path.exists(
-            model_list[i].euc_dump_path
-        ):
-            with open(model_list[i].euc_dump_path, "rb") as f:
-                similarity[i] = pickle.load(f)
     result_file = "./results/result_" + model_list[0].opt_method + ".txt"
-    with open(result_file, "w") as w_file:
+    with open("./data/attr.pkl", "rb") as r_file:
+        item_attribute = pickle.load(r_file)
+    with open(result_file, "w") as w_file, open("./results/" + model_list[0].opt_method + "_res.txt", "w") as w2f:
         for userID, itemlist in test_data.items():
             w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
+            w2f.write(str(userID) + "|" + str(itemlist[0]) + "\n")
             for i in range(itemlist[0]):
                 itemID = itemlist[i + 1]
                 r_ui_h = [0, 0, 0, 0, 0]
                 for i in range(N_folds):
                     r_ui_h[i] = (
-                        model_list[i].global_mean
-                        + model_list[i].user_bias[userID]
-                        + model_list[i].item_bias[itemID]
-                        + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
+                            model_list[i].global_mean
+                            + model_list[i].user_bias[userID]
+                            + model_list[i].item_bias[itemID]
+                            + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
                     )
-                    if userID in similarity[i].keys():
-                        item_simi = similarity[i][userID]
-                        if itemID in item_simi.keys():
-                            smi_rate = 0.3
-                            similarity_score = item_simi[itemID]
-                            if similarity_score == 0:
-                                smi_rate = 0
-                            r_ui_h[i] = (
-                                r_ui_h[i] * (1 - smi_rate) + similarity_score * smi_rate
-                            )
                 avg_score = np.mean(r_ui_h)
+                pred = avg_score
+                similarity_score = 0
+                if itemID in item_attribute.keys():
+                    smi_rate = 0.3
+                    model_list[0].N_neighbors = 4
+                    if model_list[0].opt_method == "cos":
+                        similarity_score = model_list[0].get_cos_simi_score(
+                            item_attribute, train_data, userID, itemID
+                        )
+                    elif model_list[0].opt_method == "euc":
+                        similarity_score = model_list[0].get_euc_simi_score(
+                            item_attribute, train_data, userID, itemID
+                        )
+                    if similarity_score == 0:
+                        smi_rate = 0
+                    avg_score = avg_score * (1 - smi_rate) + similarity_score * smi_rate
                 avg_score = min(100, max(0, avg_score))
                 w_file.write(str(itemID) + "  " + str(avg_score) + "\n")
+                w2f.write(
+                    str(itemID) + "  " + str(avg_score) + "  opt:" + str(similarity_score) + "  pred:" + str(
+                        pred) + "\n")
 
 
 def baiscfunksvd_avg_test(test_data, model_list):
@@ -270,10 +270,10 @@ def baiscfunksvd_avg_test(test_data, model_list):
                 r_ui_h = [0, 0, 0, 0, 0]
                 for i in range(N_folds):
                     r_ui_h[i] = (
-                        model_list[i].global_mean
-                        + model_list[i].user_bias[userID]
-                        + model_list[i].item_bias[itemID]
-                        + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
+                            model_list[i].global_mean
+                            + model_list[i].user_bias[userID]
+                            + model_list[i].item_bias[itemID]
+                            + np.dot(model_list[i].pu[userID], model_list[i].qi[itemID])
                     )
                 avg_score = np.mean(r_ui_h)
                 avg_score = min(100, max(0, avg_score))
@@ -287,23 +287,24 @@ if __name__ == "__main__":
     # 交叉验证
     model_list = []
     for i in range(N_folds):
-        model = FunkSVD(FOLD=i, K=K, optim=False)
+        model = FunkSVD(FOLD=i, K=K, optim=True)
         train_data, valid_data = cross_val_score(all_data, N_folds, i)
+        # 提前计算相似度并保存到文件之中
         # model.dump_valid_cos_simi(valid_data, train_data, i)
         # model.dump_valid_euc_simi(valid_data, train_data)
         # print("finish dump valid euc similarity, fold: ", i)
-        model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=i)
-        print("Fold " + str(i) + " ,rmse on all data:", model.RMSE(all_data))
+        # model.train(train_data, valid_data, EPOCH=EPOCH, FOLD=i)
+        # print("Fold " + str(i) + " ,rmse on all data:", model.RMSE(all_data))
         # print(
         #     "Fold " + str(i) + " ,opt rmse on all data:", model.opt_RMSE(all_data, True)
         # )
-        with open("./models/funkSVD_" + str(i) + ".pkl", "rb") as f:
+        with open(model.save_path, "rb") as f:
             model = pickle.load(f)
             # model.predict(train_data, test_data)
             model_list.append(model)
 
     print("final opt rmse on all data:", avg_predict(all_data, model_list, True))
-    baiscfunksvd_avg_test(test_data, model_list)
+    optfunksvd_avg_test(test_data, model_list)
     # 模型聚合,下面的代码均已弃用
     # with open(model_list[0].save_path, "rb") as f:
     #     finalModel = pickle.load(f)
