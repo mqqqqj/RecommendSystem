@@ -26,6 +26,7 @@ class FunkSVD:
         self.best_rmse = 100
         self.opt_method = "cos"
         self.optim = optim
+        self.fold = FOLD
         self.cos_dump_path = "./data/cos_simi_" + str(FOLD) + ".pkl"
         self.euc_dump_path = "./data/euc_simi_" + str(FOLD) + ".pkl"
         if self.optim:
@@ -36,6 +37,9 @@ class FunkSVD:
             self.N_neighbors = 0
 
     def train(self, train_data, valid_data, EPOCH, FOLD):
+        """
+        训练模型，train_data 用作训练，valid_data用作验证
+        """
         self.global_mean = self.set_global_mean(train_data)
         print(
             f"{date()}## Before training, init global mean score:{self.global_mean:.6f}"
@@ -51,10 +55,10 @@ class FunkSVD:
                 for itemID in items.keys():
                     r_ui = items[itemID]
                     r_ui_h = (
-                            self.global_mean
-                            + self.user_bias[userID]
-                            + self.item_bias[itemID]
-                            + np.dot(self.pu[userID], self.qi[itemID])
+                        self.global_mean
+                        + self.user_bias[userID]
+                        + self.item_bias[itemID]
+                        + np.dot(self.pu[userID], self.qi[itemID])
                     )
                     self.backward(
                         label=r_ui, predict=r_ui_h, userID=userID, itemID=itemID
@@ -76,6 +80,9 @@ class FunkSVD:
         self.draw_rmse(FOLD, rmse_list, EPOCH)
 
     def set_global_mean(self, train_data):
+        """
+        获取train_data上的评分平均值
+        """
         avg = 0
         num = 0
         for _, items in train_data.items():
@@ -86,6 +93,9 @@ class FunkSVD:
         return avg
 
     def backward(self, label, predict, userID, itemID):
+        """
+        更新矩阵参数
+        """
         loss = label - predict
         self.user_bias[userID] += self.lr * (loss - self.l * self.user_bias[userID])
         self.item_bias[itemID] += self.lr * (loss - self.l * self.item_bias[itemID])
@@ -102,10 +112,10 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                        self.global_mean
-                        + self.user_bias[userID]
-                        + self.item_bias[itemID]
-                        + np.dot(self.pu[userID], self.qi[itemID])
+                    self.global_mean
+                    + self.user_bias[userID]
+                    + self.item_bias[itemID]
+                    + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
@@ -125,18 +135,18 @@ class FunkSVD:
             for itemID in items.keys():
                 r_ui = items[itemID]
                 r_ui_h = (
-                        self.global_mean
-                        + self.user_bias[userID]
-                        + self.item_bias[itemID]
-                        + np.dot(self.pu[userID], self.qi[itemID])
+                    self.global_mean
+                    + self.user_bias[userID]
+                    + self.item_bias[itemID]
+                    + np.dot(self.pu[userID], self.qi[itemID])
                 )
                 if is_valid and userID in similarity.keys():
                     item_simi = similarity[userID]
                     if itemID in item_simi.keys():
-                        smi_rate = 0.4
+                        smi_rate = 0.2
                         similarity_score = item_simi[itemID]
                         if similarity_score == 0:
-                            cos_smi_rate = 0
+                            smi_rate = 0
                         r_ui_h = r_ui_h * (1 - smi_rate) + similarity_score * smi_rate
                 sum += (r_ui - r_ui_h) ** 2
                 num += 1
@@ -154,9 +164,19 @@ class FunkSVD:
         plt.xlabel("EPOCH")
         plt.legend()  # 个性化图例（颜色、形状等）
         if self.optim:
-            save_path = "./results/OptimFunkSVD_epo" + str(epoch) + "_fold_" + str(fold) + ".png"
+            save_path = (
+                "./results/"
+                + self.opt_method
+                + "FunkSVD_epo"
+                + str(epoch)
+                + "_fold_"
+                + str(fold)
+                + ".png"
+            )
         else:
-            save_path = "./results/FunkSVD_epo" + str(epoch) + "_fold_" + str(fold) + ".png"
+            save_path = (
+                "./results/FunkSVD_epo" + str(epoch) + "_fold_" + str(fold) + ".png"
+            )
         plt.savefig(save_path)
 
     def predict(self, train_data, test_data):
@@ -167,17 +187,22 @@ class FunkSVD:
                     for i in range(itemlist[0]):
                         itemID = itemlist[i + 1]
                         r_ui_h = (
-                                self.global_mean
-                                + self.user_bias[userID]
-                                + self.item_bias[itemID]
-                                + np.dot(self.pu[userID], self.qi[itemID])
+                            self.global_mean
+                            + self.user_bias[userID]
+                            + self.item_bias[itemID]
+                            + np.dot(self.pu[userID], self.qi[itemID])
                         )
                         r_ui_h = min(100, max(0, r_ui_h))
                         w_file.write(str(itemID) + "  " + str(r_ui_h) + "\n")
         else:
             with open("./data/attr.pkl", "rb") as r_file:
                 item_attribute = pickle.load(r_file)
-            with open("./results/result_improved_cos.txt", "w") as w_file, open("./results/cos_res.txt", "w") as w2f:
+            with open(
+                "./results/result_" + str(self.fold) + "_" + self.opt_method + ".txt",
+                "w",
+            ) as w_file, open(
+                "./results/" + str(self.fold) + "_" + self.opt_method + "_res.txt", "w"
+            ) as w2f:
                 for userID, itemlist in test_data.items():
                     w_file.write(str(userID) + "|" + str(itemlist[0]) + "\n")
                     w2f.write(str(userID) + "|" + str(itemlist[0]) + "\n")
